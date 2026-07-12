@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Daftar tugas elegan dari Code Technology">
+  <title>Code Technology — Todolist</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true">
+    <div class="cloud cloud--1"></div>
+    <div class="cloud cloud--2"></div>
+    <div class="cloud cloud--3"></div>
+  </div>
+  <div class="paper-grain" aria-hidden="true"></div>
+  <div class="splatter splatter--1" aria-hidden="true"></div>
+  <div class="splatter splatter--2" aria-hidden="true"></div>
+
+  <div class="floating-motifs" aria-hidden="true">
+    <svg class="motif motif--leaf" viewBox="0 0 32 32"><path d="M16 2C10 8 4 14 8 24c6-2 12-8 14-16-4-2-4-4-6-6z" fill="currentColor"/></svg>
+    <span class="motif motif--dust"></span>
+  </div>
+
+  <main class="app" aria-labelledby="page-title">
+    <header class="site-header cel-border">
+      <div class="site-header__mark" aria-hidden="true">
+        <svg class="site-header__mark-svg" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 4"/>
+          <path d="M14 28c4-8 16-8 20 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="18" cy="20" r="2" fill="currentColor"/>
+          <circle cx="30" cy="20" r="2" fill="currentColor"/>
+          <path d="M24 8v4M8 24h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+        </svg>
+      </div>
+      <div class="site-header__text">
+        <p class="site-header__eyebrow">Studio Tugas</p>
+        <span class="site-header__brand">
+          <span class="site-header__brand-code">Code</span>
+          <span class="site-header__brand-tech">Technology</span>
+        </span>
+      </div>
+    </header>
+
+    <section class="panel cel-border" aria-label="Tambah tugas baru">
+      <div class="panel__intro">
+        <h1 id="page-title" class="panel__heading handwriting">Tambah Tugas</h1>
+        <p class="panel__description">Tulis seperti di buku sketsa — header, deskripsi, dan teks tugasmu.</p>
+      </div>
+      <form id="todo-form" class="todo-form sketchbook" autocomplete="off">
+        <div class="todo-form__fields">
+          <div class="todo-form__field">
+            <label class="todo-form__label handwriting" for="todo-header">Header</label>
+            <input
+              id="todo-header"
+              class="todo-form__input"
+              type="text"
+              name="header"
+              placeholder="Judul atau header tugas"
+              maxlength="120"
+              required
+            >
+          </div>
+          <div class="todo-form__field">
+            <label class="todo-form__label handwriting" for="todo-description">Deskripsi</label>
+            <input
+              id="todo-description"
+              class="todo-form__input"
+              type="text"
+              name="description"
+              placeholder="Deskripsi singkat tugas"
+              maxlength="200"
+            >
+          </div>
+          <div class="todo-form__field">
+            <label class="todo-form__label handwriting" for="todo-text">Teks</label>
+            <textarea
+              id="todo-text"
+              class="todo-form__input todo-form__textarea"
+              name="text"
+              placeholder="Detail atau catatan tugas"
+              maxlength="500"
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+        <button class="todo-form__submit" type="submit" aria-label="Tambah tugas">
+          <span class="todo-form__submit-icon" aria-hidden="true">✦</span>
+          <span>Tambah Tugas</span>
+        </button>
+      </form>
+    </section>
+
+    <section class="panel panel--list cel-border" aria-labelledby="list-title">
+      <div class="panel__intro panel__intro--list">
+        <div class="panel__intro-row">
+          <div>
+            <h2 id="list-title" class="panel__heading panel__heading--sm handwriting">Daftar Tugas</h2>
+            <p class="panel__description">Storyboard harianmu — setiap tugas punya header, deskripsi, dan teks.</p>
+          </div>
+          <div class="stats cel-border" aria-live="polite" aria-atomic="true">
+            <span class="stats__item">
+              <span class="stats__value" id="stat-total">0</span>
+              <span class="stats__label">Total</span>
+            </span>
+            <span class="stats__divider" aria-hidden="true"></span>
+            <span class="stats__item">
+              <span class="stats__value stats__value--accent" id="stat-done">0</span>
+              <span class="stats__label">Selesai</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <ul id="todo-list" class="todo-list" role="list"></ul>
+
+      <div id="empty-state" class="empty-state" hidden>
+        <div class="empty-state__icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <ellipse cx="32" cy="42" rx="18" ry="14" fill="currentColor" opacity="0.12"/>
+            <circle cx="32" cy="28" r="14" fill="currentColor" opacity="0.18"/>
+            <circle cx="27" cy="26" r="2.5" fill="currentColor"/>
+            <circle cx="37" cy="26" r="2.5" fill="currentColor"/>
+            <path d="M27 34q5 3 10 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p class="empty-state__title handwriting">Belum ada tugas</p>
+        <p class="empty-state__text">Spirit menunggu cerita pertamamu — tambahkan tugas di atas.</p>
+      </div>
+
+      <div class="panel__footer">
+        <button id="clear-completed" class="ghost-btn" type="button" hidden>
+          Hapus yang sudah selesai
+        </button>
+      </div>
+    </section>
+
+    <footer class="app-footer cel-border">
+      <p class="app-footer__note">Disimpan otomatis di perangkat ini</p>
+
+      <div class="app-footer__credits">
+        <p class="app-footer__powered">
+          Powered by <strong>Muhamad Alfariji</strong>
+        </p>
+
+        <div class="app-footer__company">
+          <img
+            class="app-footer__logo"
+            src="logo-sgmd.png"
+            alt="Logo Star Global Media"
+            width="120"
+            height="40"
+          >
+          <div class="app-footer__company-text">
+            <span class="app-footer__company-name">Star Global Media</span>
+            <span class="app-footer__company-tag">SGMD</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
