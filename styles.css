@@ -779,6 +779,18 @@ body {
   margin-bottom: 14px;
 }
 
+.storage-notice {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--spirit-red);
+  background: var(--danger-soft);
+  border: 1.5px solid rgba(201, 76, 76, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  line-height: 1.45;
+}
+
 .app-footer__credits {
   display: flex;
   flex-direction: column;

@@ -2,6 +2,7 @@
   "use strict";
 
   var STORAGE_KEY = "code-technology-todos";
+  var storageAvailable = false;
 
   var form = document.getElementById("todo-form");
   var headerInput = document.getElementById("todo-header");
@@ -12,6 +13,10 @@
   var statTotal = document.getElementById("stat-total");
   var statDone = document.getElementById("stat-done");
   var clearCompletedBtn = document.getElementById("clear-completed");
+  var storageNotice = document.getElementById("storage-notice");
+
+  storageAvailable = checkStorage();
+  updateStorageNotice();
 
   var todos = loadTodos();
 
@@ -70,7 +75,33 @@
     saveAndRender();
   });
 
+  function checkStorage() {
+    try {
+      var testKey = STORAGE_KEY + "-test";
+      localStorage.setItem(testKey, "1");
+      localStorage.removeItem(testKey);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function updateStorageNotice() {
+    if (!storageNotice) return;
+
+    if (!storageAvailable) {
+      storageNotice.hidden = false;
+      storageNotice.textContent =
+        "Penyimpanan browser tidak tersedia. Data tidak akan tersimpan setelah halaman ditutup. Gunakan mode normal (bukan Incognito).";
+      return;
+    }
+
+    storageNotice.hidden = true;
+  }
+
   function loadTodos() {
+    if (!storageAvailable) return [];
+
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return [];
@@ -85,9 +116,14 @@
   function normalizeTodo(todo) {
     if (!todo || typeof todo !== "object") return todo;
 
+    var id =
+      todo.id !== undefined && todo.id !== null
+        ? String(todo.id)
+        : generateId();
+
     if (typeof todo.header === "string") {
       return {
-        id: todo.id,
+        id: id,
         header: todo.header,
         description: typeof todo.description === "string" ? todo.description : "",
         text: typeof todo.text === "string" ? todo.text : "",
@@ -98,7 +134,7 @@
 
     if (typeof todo.text === "string") {
       return {
-        id: todo.id,
+        id: id,
         header: todo.text,
         description: "",
         text: "",
@@ -122,10 +158,27 @@
   }
 
   function saveTodos() {
+    if (!storageAvailable) {
+      updateStorageNotice();
+      return false;
+    }
+
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+      var payload = JSON.stringify(todos);
+      localStorage.setItem(STORAGE_KEY, payload);
+
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if (saved !== payload) {
+        storageAvailable = false;
+        updateStorageNotice();
+        return false;
+      }
+
+      return true;
     } catch (error) {
-      /* Storage may be unavailable in private mode or when full */
+      storageAvailable = false;
+      updateStorageNotice();
+      return false;
     }
   }
 
@@ -219,6 +272,16 @@
   function escapeAttr(text) {
     return escapeHtml(text).replace(/'/g, "&#39;");
   }
+
+  window.addEventListener("pagehide", function () {
+    saveTodos();
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") {
+      saveTodos();
+    }
+  });
 
   render();
 })();
