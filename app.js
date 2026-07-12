@@ -1,9 +1,6 @@
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "code-technology-todos";
-  var storageAvailable = false;
-
   var form = document.getElementById("todo-form");
   var headerInput = document.getElementById("todo-header");
   var descriptionInput = document.getElementById("todo-description");
@@ -14,41 +11,149 @@
   var statDone = document.getElementById("stat-done");
   var clearCompletedBtn = document.getElementById("clear-completed");
   var storageNotice = document.getElementById("storage-notice");
+  var submitBtn = form ? form.querySelector(".todo-form__submit") : null;
 
-  storageAvailable = checkStorage();
-  updateStorageNotice();
+  var supabase = null;
+  var todos = [];
+  var isBusy = false;
 
-  var todos = loadTodos();
+  init();
 
-  form.addEventListener("submit", function (event) {
+  function init() {
+    if (!form) return;
+
+    if (!isSupabaseConfigured()) {
+      showNotice(
+        "Database belum dikonfigurasi. Isi SUPABASE_URL dan SUPABASE_ANON_KEY di config.js, lalu jalankan supabase-setup.sql."
+      );
+      render();
+      return;
+    }
+
+    if (typeof window.supabase === "undefined" || !window.supabase.createClient) {
+      showNotice("Library Supabase gagal dimuat. Periksa koneksi internet.");
+      render();
+      return;
+    }
+
+    supabase = window.supabase.createClient(
+      window.TODO_CONFIG.SUPABASE_URL,
+      window.TODO_CONFIG.SUPABASE_ANON_KEY
+    );
+
+    form.addEventListener("submit", onAddTodo);
+    clearCompletedBtn.addEventListener("click", onClearCompleted);
+    listEl.addEventListener("change", onToggleTodo);
+    listEl.addEventListener("click", onDeleteTodo);
+
+    loadTodos();
+  }
+
+  function isSupabaseConfigured() {
+    var config = window.TODO_CONFIG || {};
+    var url = config.SUPABASE_URL || "";
+    var key = config.SUPABASE_ANON_KEY || "";
+
+    return (
+      url.indexOf("https://") === 0 &&
+      url.indexOf("supabase.co") !== -1 &&
+      key.length > 20 &&
+      url !== "ISI_URL_SUPABASE" &&
+      key !== "ISI_ANON_KEY"
+    );
+  }
+
+  function showNotice(message) {
+    if (!storageNotice) return;
+    storageNotice.hidden = false;
+    storageNotice.textContent = message;
+  }
+
+  function hideNotice() {
+    if (!storageNotice) return;
+    storageNotice.hidden = true;
+  }
+
+  function setBusy(state) {
+    isBusy = state;
+    if (submitBtn) submitBtn.disabled = state;
+    if (clearCompletedBtn) clearCompletedBtn.disabled = state;
+  }
+
+  function loadTodos() {
+    if (!supabase) return;
+
+    setBusy(true);
+    showNotice("Memuat tugas dari cloud...");
+
+    supabase
+      .from("todos")
+      .select("id, header, description, body, done, created_at")
+      .order("created_at", { ascending: false })
+      .then(function (result) {
+        if (result.error) {
+          showNotice("Gagal memuat data: " + result.error.message);
+          todos = [];
+        } else {
+          todos = (result.data || []).map(normalizeTodo);
+          hideNotice();
+        }
+        render();
+      })
+      .catch(function (error) {
+        showNotice("Gagal memuat data: " + error.message);
+        todos = [];
+        render();
+      })
+      .finally(function () {
+        setBusy(false);
+      });
+  }
+
+  function onAddTodo(event) {
     event.preventDefault();
+    if (!supabase || isBusy) return;
+
     var header = headerInput.value.trim();
     if (!header) return;
 
-    todos.unshift({
-      id: generateId(),
+    var payload = {
       header: header,
       description: descriptionInput.value.trim(),
-      text: textInput.value.trim(),
+      body: textInput.value.trim(),
       done: false,
-      createdAt: Date.now(),
-    });
+    };
 
-    form.reset();
-    saveAndRender();
-    headerInput.focus();
-  });
+    setBusy(true);
 
-  clearCompletedBtn.addEventListener("click", function () {
-    todos = todos.filter(function (todo) {
-      return !todo.done;
-    });
-    saveAndRender();
-  });
+    supabase
+      .from("todos")
+      .insert(payload)
+      .select("id, header, description, body, done, created_at")
+      .single()
+      .then(function (result) {
+        if (result.error) {
+          showNotice("Gagal menambah tugas: " + result.error.message);
+          return;
+        }
 
-  listEl.addEventListener("change", function (event) {
+        todos.unshift(normalizeTodo(result.data));
+        form.reset();
+        hideNotice();
+        render();
+        headerInput.focus();
+      })
+      .catch(function (error) {
+        showNotice("Gagal menambah tugas: " + error.message);
+      })
+      .finally(function () {
+        setBusy(false);
+      });
+  }
+
+  function onToggleTodo(event) {
     var checkbox = event.target;
-    if (checkbox.type !== "checkbox") return;
+    if (checkbox.type !== "checkbox" || !supabase || isBusy) return;
 
     var item = checkbox.closest("[data-id]");
     if (!item) return;
@@ -57,134 +162,113 @@
     var todo = findTodo(id);
     if (!todo) return;
 
-    todo.done = checkbox.checked;
-    saveAndRender();
-  });
+    var newDone = checkbox.checked;
+    setBusy(true);
 
-  listEl.addEventListener("click", function (event) {
+    supabase
+      .from("todos")
+      .update({ done: newDone })
+      .eq("id", id)
+      .then(function (result) {
+        if (result.error) {
+          checkbox.checked = !newDone;
+          showNotice("Gagal memperbarui tugas: " + result.error.message);
+          return;
+        }
+
+        todo.done = newDone;
+        hideNotice();
+        render();
+      })
+      .catch(function (error) {
+        checkbox.checked = !newDone;
+        showNotice("Gagal memperbarui tugas: " + error.message);
+      })
+      .finally(function () {
+        setBusy(false);
+      });
+  }
+
+  function onDeleteTodo(event) {
     var deleteBtn = event.target.closest(".todo-item__delete");
-    if (!deleteBtn) return;
+    if (!deleteBtn || !supabase || isBusy) return;
 
     var item = deleteBtn.closest("[data-id]");
     if (!item) return;
 
     var id = item.getAttribute("data-id");
-    todos = todos.filter(function (todo) {
-      return todo.id !== id;
+    setBusy(true);
+
+    supabase
+      .from("todos")
+      .delete()
+      .eq("id", id)
+      .then(function (result) {
+        if (result.error) {
+          showNotice("Gagal menghapus tugas: " + result.error.message);
+          return;
+        }
+
+        todos = todos.filter(function (todo) {
+          return todo.id !== id;
+        });
+        hideNotice();
+        render();
+      })
+      .catch(function (error) {
+        showNotice("Gagal menghapus tugas: " + error.message);
+      })
+      .finally(function () {
+        setBusy(false);
+      });
+  }
+
+  function onClearCompleted() {
+    if (!supabase || isBusy) return;
+
+    var completedIds = todos.filter(function (todo) {
+      return todo.done;
+    }).map(function (todo) {
+      return todo.id;
     });
-    saveAndRender();
-  });
 
-  function checkStorage() {
-    try {
-      var testKey = STORAGE_KEY + "-test";
-      localStorage.setItem(testKey, "1");
-      localStorage.removeItem(testKey);
-      return true;
-    } catch (error) {
-      return false;
-    }
+    if (completedIds.length === 0) return;
+
+    setBusy(true);
+
+    supabase
+      .from("todos")
+      .delete()
+      .eq("done", true)
+      .then(function (result) {
+        if (result.error) {
+          showNotice("Gagal menghapus tugas selesai: " + result.error.message);
+          return;
+        }
+
+        todos = todos.filter(function (todo) {
+          return !todo.done;
+        });
+        hideNotice();
+        render();
+      })
+      .catch(function (error) {
+        showNotice("Gagal menghapus tugas selesai: " + error.message);
+      })
+      .finally(function () {
+        setBusy(false);
+      });
   }
 
-  function updateStorageNotice() {
-    if (!storageNotice) return;
-
-    if (!storageAvailable) {
-      storageNotice.hidden = false;
-      storageNotice.textContent =
-        "Penyimpanan browser tidak tersedia. Data tidak akan tersimpan setelah halaman ditutup. Gunakan mode normal (bukan Incognito).";
-      return;
-    }
-
-    storageNotice.hidden = true;
-  }
-
-  function loadTodos() {
-    if (!storageAvailable) return [];
-
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      var parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.map(normalizeTodo).filter(isValidTodo);
-    } catch (error) {
-      return [];
-    }
-  }
-
-  function normalizeTodo(todo) {
-    if (!todo || typeof todo !== "object") return todo;
-
-    var id =
-      todo.id !== undefined && todo.id !== null
-        ? String(todo.id)
-        : generateId();
-
-    if (typeof todo.header === "string") {
-      return {
-        id: id,
-        header: todo.header,
-        description: typeof todo.description === "string" ? todo.description : "",
-        text: typeof todo.text === "string" ? todo.text : "",
-        done: !!todo.done,
-        createdAt: todo.createdAt || Date.now(),
-      };
-    }
-
-    if (typeof todo.text === "string") {
-      return {
-        id: id,
-        header: todo.text,
-        description: "",
-        text: "",
-        done: !!todo.done,
-        createdAt: todo.createdAt || Date.now(),
-      };
-    }
-
-    return todo;
-  }
-
-  function isValidTodo(todo) {
-    return (
-      todo &&
-      typeof todo.id === "string" &&
-      typeof todo.header === "string" &&
-      typeof todo.description === "string" &&
-      typeof todo.text === "string" &&
-      typeof todo.done === "boolean"
-    );
-  }
-
-  function saveTodos() {
-    if (!storageAvailable) {
-      updateStorageNotice();
-      return false;
-    }
-
-    try {
-      var payload = JSON.stringify(todos);
-      localStorage.setItem(STORAGE_KEY, payload);
-
-      var saved = localStorage.getItem(STORAGE_KEY);
-      if (saved !== payload) {
-        storageAvailable = false;
-        updateStorageNotice();
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      storageAvailable = false;
-      updateStorageNotice();
-      return false;
-    }
-  }
-
-  function saveAndRender() {
-    saveTodos();
-    render();
+  function normalizeTodo(row) {
+    return {
+      id: String(row.id),
+      header: row.header || "",
+      description: row.description || "",
+      text: row.body || "",
+      done: !!row.done,
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+    };
   }
 
   function findTodo(id) {
@@ -192,10 +276,6 @@
       if (todos[i].id === id) return todos[i];
     }
     return null;
-  }
-
-  function generateId() {
-    return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
   }
 
   function renderTodoBody(todo) {
@@ -238,11 +318,11 @@
 
       li.innerHTML =
         '<label class="todo-item__check">' +
-        '<input type="checkbox"' + (todo.done ? " checked" : "") + ' aria-label="' + escapeAttr(checkLabel) + '">' +
+        '<input type="checkbox"' + (todo.done ? " checked" : "") + (isBusy ? " disabled" : "") + ' aria-label="' + escapeAttr(checkLabel) + '">' +
         '<span class="todo-item__checkmark" aria-hidden="true"></span>' +
         "</label>" +
         renderTodoBody(todo) +
-        '<button class="todo-item__delete" type="button" aria-label="Hapus tugas">' +
+        '<button class="todo-item__delete" type="button" aria-label="Hapus tugas"' + (isBusy ? " disabled" : "") + ">" +
         '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
         '<path d="M6 7h12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7h12z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
         "</svg>" +
@@ -262,7 +342,7 @@
   }
 
   function escapeHtml(text) {
-    return text
+    return String(text)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
@@ -272,16 +352,4 @@
   function escapeAttr(text) {
     return escapeHtml(text).replace(/'/g, "&#39;");
   }
-
-  window.addEventListener("pagehide", function () {
-    saveTodos();
-  });
-
-  document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") {
-      saveTodos();
-    }
-  });
-
-  render();
 })();

@@ -758,6 +758,18 @@ body {
   background: var(--danger-soft);
 }
 
+.todo-form__submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 3px 0 rgba(45, 80, 52, 0.25);
+}
+
+.ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .ghost-btn:focus-visible {
   outline: 2px solid var(--pastoral-green);
   outline-offset: 2px;
