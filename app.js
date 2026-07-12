@@ -169,10 +169,19 @@
       .from("todos")
       .update({ done: newDone })
       .eq("id", id)
+      .select("id")
       .then(function (result) {
         if (result.error) {
           checkbox.checked = !newDone;
           showNotice("Gagal memperbarui tugas: " + result.error.message);
+          return;
+        }
+
+        if (!result.data || result.data.length === 0) {
+          checkbox.checked = !newDone;
+          showNotice(
+            "Perubahan tidak tersimpan. Jalankan ulang supabase-setup.sql (policy UPDATE belum aktif)."
+          );
           return;
         }
 
@@ -203,9 +212,17 @@
       .from("todos")
       .delete()
       .eq("id", id)
+      .select("id")
       .then(function (result) {
         if (result.error) {
           showNotice("Gagal menghapus tugas: " + result.error.message);
+          return;
+        }
+
+        if (!result.data || result.data.length === 0) {
+          showNotice(
+            "Tugas tidak terhapus. Jalankan ulang supabase-setup.sql (policy DELETE belum aktif)."
+          );
           return;
         }
 
@@ -240,9 +257,17 @@
       .from("todos")
       .delete()
       .eq("done", true)
+      .select("id")
       .then(function (result) {
         if (result.error) {
           showNotice("Gagal menghapus tugas selesai: " + result.error.message);
+          return;
+        }
+
+        if (!result.data || result.data.length === 0) {
+          showNotice(
+            "Tugas tidak terhapus. Jalankan ulang supabase-setup.sql (policy DELETE belum aktif)."
+          );
           return;
         }
 
